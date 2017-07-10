@@ -1,0 +1,81 @@
+package mum.waa.fd.app.controller;
+
+import java.security.Principal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import mum.waa.fd.app.domain.Appointment;
+import mum.waa.fd.app.domain.Gender;
+import mum.waa.fd.app.domain.Patient;
+import mum.waa.fd.app.service.PatientService;
+import mum.waa.fd.app.validator.PasswordValidator;
+
+
+@Controller
+public class PatientController {
+
+	@Autowired
+	private PatientService patientService;
+
+	
+	@InitBinder
+	public void initBinder(WebDataBinder dataBinder) {
+		dataBinder.addValidators(new PasswordValidator());
+	}
+
+	
+	@RequestMapping(value = "/patients/register", method = RequestMethod.GET)
+	public String showRegistrationPatient(@ModelAttribute("patient") Patient patient) {
+		patient.setGender(Gender.MALE);
+		// dummy data for testing
+		return "patient-registration";
+	}
+
+	
+	@RequestMapping(value = "/patients", method = RequestMethod.POST)
+	public String registerPatient(@Valid @ModelAttribute("patient") Patient patient, BindingResult bindingResult,
+			RedirectAttributes redirectAttributes) {
+		if (bindingResult.hasErrors()) {
+			return "patient-registration";
+		}
+
+		patientService.savePatient(patient);
+
+		redirectAttributes.addFlashAttribute("patient", patient);
+		return "redirect:/patients/successful";
+	}
+
+	
+	@RequestMapping(value = "/patients/successful", method = RequestMethod.GET)
+	public String showRegistrationSuccessful(@ModelAttribute("patient") Patient patient) {
+		return "patient-registration-successful";
+	}
+
+	
+	@RequestMapping(value = "/patients/home", method = RequestMethod.GET)
+	public String showPatientHome(@ModelAttribute("patient") Patient patient, Model model, Principal principal) {
+		Patient foundPatient = patientService.findPatientByEmail(principal.getName());
+		Map<Date, List<Appointment>> upcomingAppointment = patientService
+				.getUpcomingAppointment(foundPatient.getAppointmentList());
+		Map<Date, List<Appointment>> overdueAppointment = patientService
+				.getOverdueAppointment(foundPatient.getAppointmentList());
+
+		model.addAttribute("upcomingAppointment", upcomingAppointment);
+		model.addAttribute("overdueAppointment", overdueAppointment);
+		return "patient-home";
+	}
+}
